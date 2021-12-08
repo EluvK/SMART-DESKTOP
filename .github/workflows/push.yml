@@ -1,0 +1,36 @@
+name: PUSH
+on:
+  push:
+    branches:    
+      - master
+jobs:
+  push:
+      runs-on: ${{ matrix.operating-system }}
+      strategy:
+        matrix:
+          # in this example, there is a newer version already installed, 3.7.7, so the older version will be downloaded
+          operating-system: ['ubuntu-18.04']
+      steps:
+      - uses: actions/checkout@v2 # Checking out the repo
+      - name: Run with setup-python 3.7
+        uses: actions/setup-python@v2.2.2
+        with:
+          python-version: 3.7
+      - name: CD dir
+        run: cd auto-publish && pwd
+      - name: Install requiment
+        run: pip3 install -r requirements.txt
+      - name: Build
+        env:
+          USERNAME: ${{ secrets.USERNAME }}
+          PASSWORD: ${{ secrets.PASSWORD }}
+          XMLRPC_PHP: ${{ secrets.XMLRPC_PHP }}
+        run: python main.py
+      # - name: Commit and push if changed   # 将.md_sha1 README.md 更新到仓库
+      #   run: |
+      #     git diff
+      #     git config --global user.email "36977935+EluvK@users.noreply.github.com"
+      #     git config --global user.name "EluvK-github-action"
+      #     git add .
+      #     git commit -m "Github Action auto Updated"
+      #     git push

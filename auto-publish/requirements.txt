@@ -1,0 +1,4 @@
+Markdown==3.3.6
+py_gfm==1.0.2
+python_frontmatter==1.0.0
+python_wordpress_xmlrpc==2.3
