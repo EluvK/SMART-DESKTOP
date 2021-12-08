@@ -18,7 +18,7 @@ jobs:
           python-version: 3.7
       - name: Install requiment
         run: cd auto-publish && pwd && pip3 install -r requirements.txt
-      - name: Build
+      - name: Run scripts 
         env:
           USERNAME: ${{ secrets.USERNAME }}
           PASSWORD: ${{ secrets.PASSWORD }}
