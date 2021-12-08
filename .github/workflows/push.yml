@@ -16,16 +16,14 @@ jobs:
         uses: actions/setup-python@v2.2.2
         with:
           python-version: 3.7
-      - name: CD dir
-        run: cd auto-publish && pwd
       - name: Install requiment
-        run: pip3 install -r requirements.txt
+        run: cd auto-publish && pwd && pip3 install -r requirements.txt
       - name: Build
         env:
           USERNAME: ${{ secrets.USERNAME }}
           PASSWORD: ${{ secrets.PASSWORD }}
           XMLRPC_PHP: ${{ secrets.XMLRPC_PHP }}
-        run: python main.py
+        run: cd auto-publish && pwd && python3 main.py
       # - name: Commit and push if changed   # 将.md_sha1 README.md 更新到仓库
       #   run: |
       #     git diff
