@@ -1,0 +1,464 @@
+---
+title: "go-eth单机部署体验"
+tags: 
+status: draft
+categories: 
+- "BlockChainLearning"
+---
+
+
+[toc]
+
+## BASIC
+
+### 基础操作：
+下载代码、编译等见[官方仓库 go-ethereum](https://github.com/ethereum/go-ethereum)的`README.md`
+
+### 创世信息
+新建一个配置文件填入以下信息，探路中遇到的许多问题都是源于创世块里没有填清楚分叉版本高度。以太坊经历过多次分叉后，网络上的很多教程都有些过时。
+``` JSON
+{
+    "config": {
+        "chainId": 666,
+        "homesteadBlock": 0,
+        "eip150Block": 0,
+        "eip150Hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "eip155Block": 0,
+        "eip158Block": 0,
+        "byzantiumBlock": 0,
+        "constantinopleBlock": 0,
+        "petersburgBlock": 0,
+        "istanbulBlock": 0,
+        "ethash": {}
+    },
+    "nonce": "0x0",
+    "timestamp": "0x5d5cdc87",
+    "extraData": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "gasLimit": "0x47b760",
+    "difficulty": "0x80000",
+    "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "coinbase": "0x0000000000000000000000000000000000000000",
+    "alloc": {
+        "0000000000000000000000000000000000000000": {
+            "balance": "0x1"
+        }
+    },
+    "number": "0x0",
+    "gasUsed": "0x0",
+    "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000"
+}
+```
+
+## 控制台基础操作
+
+#### 准备工作
+``` BASH
+make all
+cd build/bin
+mkdir private-eth
+cd private-eth
+cp ../geth .
+vi genesis.json # 输入上面的配置文件。
+```
+
+#### 创世信息
+``` BASH
+./geth --datadir ./data init genesis.json
+```
+
+#### 启动控制台
+``` BASH
+./geth --datadir ./data --networkid 666 --nodiscover console 2>>ouput.log
+```
+
+#### 命令：
+##### 查看一下系统有的用户
+``` BASH
+eth.accounts
+```
+
+##### 查看详细的用户信息
+``` BASH
+personal
+```
+
+##### 创建账户
+``` BASH
+personal.newAccount('passwd')
+```
+
+##### 查看余额
+``` BASH
+eth.getBalance(eth.accounts[0])
+web3.fromWei(eth.getBalance(eth.accounts[0]), 'ether')
+```
+
+##### 查看coinbase账号
+``` BASH
+eth.coinbase
+```
+
+##### 调整coinbase账户
+``` BASH
+miner.setEtherbase(eth.accounts[1])
+```
+
+##### 挖矿
+``` BASH
+miner.start(1) # 括号里不填的话是默认全力挖矿
+```
+
+##### 停止
+``` BASH
+miner.stop()
+```
+
+##### 解锁账户
+``` BASH
+personal.unlockAccount(eth.accounts[0])
+```
+
+##### 转账
+``` BASH
+eth.sendTransaction({from:eth.accounts[0],to:eth.accounts[1],value:web3.toWei(8,'ether')})
+```
+
+##### 查询交易
+``` BASH
+eth.getTransaction("0x02d0a653139923acd02c79a4704705d182326dfd857f91e0247a324325a4b3a2")
+eth.getTransactionReceipt("0x02d0a653139923acd02c79a4704705d182326dfd857f91e0247a324325a4b3a2")
+```
+
+## 编译智能合约：
+
+#### 安装solidity编译器solc
+``` BASH
+apt install snapd
+snap install solc
+
+# use:
+# /snap/bin/solc --bin --abi test.sol
+```
+
+- [ ] todo solc-select?
+
+#### 编译solidity合约：
+``` BASH
+mkdir contract_test
+cd contract_test
+vi test.sol
+```
+
+输入附录 [solidity合约示例1](#合约示例1)
+
+编译命令：
+``` BASH
+/snap/bin/solc --bin --abi test.sol
+
+# 示例结果：
+======= 2.sol:Owner =======
+Binary:
+608060405234801561001057600080fd5b50610230806100206000396000f3fe608060405234801561001057600080fd5b50600436106100415760003560e01c806313af40351461004657806357a86f7d1461008a5780638da5cb5b14610094575b600080fd5b6100886004803603602081101561005c57600080fd5b81019080803573ffffffffffffffffffffffffffffffffffffffff1690602001909291905050506100de565b005b610092610194565b005b61009c6101d6565b604051808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060405180910390f35b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff161461013757600080fd5b600073ffffffffffffffffffffffffffffffffffffffff168173ffffffffffffffffffffffffffffffffffffffff1614610191578073ffffffffffffffffffffffffffffffffffffffff166000809054906101000a905050505b50565b336000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff160217905550565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff168156fea265627a7a723158208a5fb7352393d1d4f1952d56c21027796d1812508450f006f3576602d32aef5464736f6c63430005100032
+Contract JSON ABI
+[{"constant":false,"inputs":[],"name":"Init","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"internalType":"address","name":"to","type":"address"}],"name":"setOwner","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"}]
+```
+
+#### 部署合约：
+打开控制台：
+`./geth --datadir ./data --networkid 666 --nodiscover console 2>>ouput.log`
+
+``` BASH
+# 将ABI的内容复制出来，放到 web3.eth.contract() 中去
+> var contractAbi = web3.eth.contract([{"constant":true,..}]);
+
+# 将Binary的内容复制出来，注意在内容前面需要加上 '0x'
+> var contractBin = '0x{<Binary中的内容>}'
+
+# 计算需要的 gas
+> var gasValue = eth.estimateGas({data:contractBin})
+
+# 部署合约
+> var contract = contractAbi.new(
+{
+  from: web3.eth.accounts[0],
+  data: contractBin,
+  gas: gasValue
+}, function (e, contract){
+console.log(e, contract);
+  if (typeof contract.address !== 'undefined') {
+  console.log('Contract mined! address: ' + contract.address + '   transactionHash: ' + contract.transactionHash);
+}
+})
+```
+
+#### 启动矿工，合约才能部署完成
+``` BASH
+
+> miner.start()
+// 过一小会
+
+Contract mined! address: 0x4289aec1d7cb79c8b181f37bb9fa5939b2c9e2bb transactionHash: 0x41f4dda5868d21f883fcf41ebeb2bddd3cac737ba2f5e005c2b573d19a9edf33
+```
+
+#### 调用合约
+``` BASH
+> contract.getLCM(2, 3, {from:eth.coinbase, gas:200000})
+
+"0xd52f4fa99f66052078564b123820b84083ede17da789ad8520410fb3c57ec739"
+```
+
+1. 因为 getLCM 方法会改变链上的数据，所以调用的时候一定要带上地址{from:eth.coinbase}，否则会报错Error: invalid address
+2. 在交易参数中，gas 参数的默认值为 90000，但是在这个方法中是不够的，所以需要自己设置大一点。在交易完成后，可以使用 eth.getTransactionReceipt('0x...') 查看实际使用的 gas 数量。如下图
+
+
+## wtop合约
+验证wBNB.sol功能的探路过程：
+
+### 编译合约
+``` BASH
+vi wtop.sol
+```
+输入附录 [wtop.sol](#合约示例2) 的代码
+``` BASH
+r$ /snap/bin/solc --bin --abi wtop.sol 
+
+======= wtop.sol:WTOP =======
+Binary:
+# 输出太长我就省略了
+Contract JSON ABI
+# 输出太长我就省略了
+```
+
+### 启动链
+``` BASH
+ls
+genesis.json  geth
+
+./geth --datadir ./data init genesis.json
+./geth --datadir ./data --networkid 666 --nodiscover console 2>>ouput.log
+
+```
+
+### 创建账户挖矿
+``` BASH
+> personal.newAccount('passwd')
+"0xf632828b4e487708e4f602a634133c5733906c5c"
+> eth.getBalance(eth.accounts[0])
+0
+> miner.start(1)
+```
+
+等一会后账户里就有钱了，继续让他挖着没关系。
+``` BASH
+🔨 mined potential block
+...
+eth.getBalance(eth.accounts[0])
+4000000000000000000
+```
+
+### 部署合约
+
+部署合约和上面一样的，bin和abi的内容改成编译出来的就行，完整过程：
+``` BASH
+var contractAbi = web3.eth.contract([{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"dst","type":"address"},{"indexed":false,"internalType":"uint256","name":"wad","type":"uint256"}],"name":"Deposit","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"src","type":"address"},{"indexed":false,"internalType":"uint256","name":"wad","type":"uint256"}],"name":"Withdrawal","type":"event"},{"constant":true,"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"decimals","outputs":[{"internalType":"uint8","name":"","type":"uint8"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[],"name":"deposit","outputs":[],"payable":true,"stateMutability":"payable","type":"function"},{"constant":true,"inputs":[],"name":"name","outputs":[{"internalType":"string","name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"symbol","outputs":[{"internalType":"string","name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"totalSupply","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"internalType":"uint256","name":"wad","type":"uint256"}],"name":"withdraw","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"}]);
+undefined
+> var contractBin = '0x60806040526040518060400160405280600b81526020017f5772617070656420544f500000000000000000000000000000000000000000008152506000908051906020019061004f9291906100ca565b506040518060400160405280600481526020017f57544f50000000000000000000000000000000000000000000000000000000008152506001908051906020019061009b9291906100ca565b506012600260006101000a81548160ff021916908360ff1602179055503480156100c457600080fd5b5061016f565b828054600181600116156101000203166002900490600052602060002090601f016020900481019282601f1061010b57805160ff1916838001178555610139565b82800160010185558215610139579182015b8281111561013857825182559160200191906001019061011d565b5b509050610146919061014a565b5090565b61016c91905b80821115610168576000816000905550600101610150565b5090565b90565b61060d8061017e6000396000f3fe6080604052600436106100705760003560e01c8063313ce5671161004e578063313ce5671461016b57806370a082311461019c57806395d89b4114610201578063d0e30db01461029157610070565b806306fdde031461007557806318160ddd146101055780632e1a7d4d14610130575b600080fd5b34801561008157600080fd5b5061008a61029b565b6040518080602001828103825283818151815260200191508051906020019080838360005b838110156100ca5780820151818401526020810190506100af565b50505050905090810190601f1680156100f75780820380516001836020036101000a031916815260200191505b509250505060405180910390f35b34801561011157600080fd5b5061011a610339565b6040518082815260200191505060405180910390f35b34801561013c57600080fd5b506101696004803603602081101561015357600080fd5b8101908080359060200190929190505050610341565b005b34801561017757600080fd5b50610180610472565b604051808260ff1660ff16815260200191505060405180910390f35b3480156101a857600080fd5b506101eb600480360360208110156101bf57600080fd5b81019080803573ffffffffffffffffffffffffffffffffffffffff169060200190929190505050610485565b6040518082815260200191505060405180910390f35b34801561020d57600080fd5b5061021661049d565b6040518080602001828103825283818151815260200191508051906020019080838360005b8381101561025657808201518184015260208101905061023b565b50505050905090810190601f1680156102835780820380516001836020036101000a031916815260200191505b509250505060405180910390f35b61029961053b565b005b60008054600181600116156101000203166002900480601f0160208091040260200160405190810160405280929190818152602001828054600181600116156101000203166002900480156103315780601f1061030657610100808354040283529160200191610331565b820191906000526020600020905b81548152906001019060200180831161031457829003601f168201915b505050505081565b600047905090565b80600360003373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002054101561038d57600080fd5b80600360003373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001908152602001600020600082825403925050819055503373ffffffffffffffffffffffffffffffffffffffff166108fc829081150290604051600060405180830381858888f19350505050158015610420573d6000803e3d6000fd5b503373ffffffffffffffffffffffffffffffffffffffff167f7fcf532c15f0a6db0bd6d0e038bea71d30d808c7d98cb3bf7268a95bf5081b65826040518082815260200191505060405180910390a250565b600260009054906101000a900460ff1681565b60036020528060005260406000206000915090505481565b60018054600181600116156101000203166002900480601f0160208091040260200160405190810160405280929190818152602001828054600181600116156101000203166002900480156105335780601f1061050857610100808354040283529160200191610533565b820191906000526020600020905b81548152906001019060200180831161051657829003601f168201915b505050505081565b34600360003373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001908152602001600020600082825401925050819055503373ffffffffffffffffffffffffffffffffffffffff167fe1fffcc4923d04b559f4d29a8bfc6cda04eb5b0d3c460751c2402c5c5cc9109c346040518082815260200191505060405180910390a256fea265627a7a723158207f625d5f4e725a473ec9151bee16305a7ac8517606a1466da7a10ec8913e86a064736f6c63430005100032'
+undefined
+> var gasValue = eth.estimateGas({data:contractBin})
+undefined
+> personal.unlockAccount(eth.accounts[0])
+Unlock account 0xf632828b4e487708e4f602a634133c5733906c5c
+Passphrase: 
+true
+> var contract = contractAbi.new(
+{
+    from: web3.eth.accounts[0],
+    data: contractBin,
+    gas: gasValue
+    }, function (e, contract){
+    console.log(e, contract);
+    if (typeof contract.address !== 'undefined') {
+        console.log('Contract mined! address: ' + contract.address + '   transactionHash: ' + contract.transactionHash);
+    }
+})
+null [object Object]
+undefined
+> null [object Object]
+Contract mined! address: 0x12e98773d2fa568c055f8ca23ecd0d27becde9c7   transactionHash: 0xd4e4b47949345222f2e93758cd68b9bf91e0cd77a3d008e992ef9beb4b94ccd1
+
+```
+
+得到合约地址：0x12e98773d2fa568c055f8ca23ecd0d27becde9c7
+
+此时合约地址里是没有native token的：
+``` BASH
+> eth.getBalance("0x12e98773d2fa568c055f8ca23ecd0d27becde9c7")
+0
+```
+也没有`totalSupply`:
+``` BASH
+> contract.totalSupply()
+0
+```
+
+### 质押和赎回
+质押一点钱，因为一直在挖矿，账户余额持续增加，随便质押个数值比较好看出来账户余额变化：
+``` BASH
+> contract.deposit({from:eth.accounts[0],gas:2000000,value:99999})
+"0xd4f085c571dd64d99b6e37721ae39764d7d8ecdb6ed830aac10073a006764d15"
+```
+等交易被打包出块后就可以查到：
+``` BASH
+eth.getTransaction("0xd4f085c571dd64d99b6e37721ae39764d7d8ecdb6ed830aac10073a006764d15")
+eth.getTransactionReceipt("0xd4f085c571dd64d99b6e37721ae39764d7d8ecdb6ed830aac10073a006764d15")
+```
+再看账户余额和合约账户余额：
+``` BASH
+> eth.getBalance(eth.accounts[0])
+109999999999999900001
+
+> eth.getBalance("0x12e98773d2fa568c055f8ca23ecd0d27becde9c7")
+99999
+
+> contract.totalSupply()
+99999
+
+```
+
+取出质押的一部分：
+``` BASH
+> contract.withdraw(333,{from:eth.accounts[0],gas:200000})
+"0x2ecd139019eb8ab8cf8f629770e370667ddf53fb90e910e4b18c1ed7a8e33788"
+
+> #等出块后：
+
+> eth.getBalance(eth.accounts[0])
+145999999999999900334  # 尾数可以看出来变化
+
+> eth.getBalance("0x12e98773d2fa568c055f8ca23ecd0d27becde9c7")
+99666
+
+> contract.totalSupply()
+99666
+```
+
+### 总结
+再加上erc20的功能，像WBNB.sol这样，就可以实现一个erc20+1:1兑换的系统合约。打通以太坊侧链上的资金流入。
+
+
+
+## 附录：
+#### 合约示例1
+``` js
+pragma solidity ^0.5.0;
+
+contract Owner {
+   //合约拥有者
+   address public owner;
+
+   //构造函数，将合约的所有权给予发布者
+   function Init() public {
+       owner = msg.sender;
+   }
+
+   //仅有合约的拥有者可以操作
+   modifier onlyOwner() {
+       require(msg.sender == owner);
+       _;
+   }
+
+   //onlyOwner作为函数执行的前置条件，仅有合约拥有者可以更换所属权
+   function setOwner(address to) public onlyOwner {
+       if(to != address(0)) {
+           owner == to;
+       }
+   }
+}
+
+//通过is使Compute继承Owner合约
+contract Compute is Owner {
+
+   //建立一个存储于区块链上的二维数组，存储每一次计算的输入以及结果
+   uint[3][] records;
+
+   //比较大小，solidity允许返回两个值
+   function compare(uint first, uint second) internal pure returns(uint bigOne, uint smallOne) {
+       if(first > second) {
+           return (first, second);
+       }
+       else {
+           return (second, first);
+       }
+   }
+
+   //建立事件去监听每一次计算并记录日志
+   event GetLCM(uint first, uint second, uint result);
+
+   function getLCM(uint first, uint second) external onlyOwner returns(uint) {
+       if (first == second) {
+           return first;
+       }
+       else {
+           uint bigOne;uint smallOne;
+           (bigOne, smallOne) = compare(first, second);
+           uint i = 1;
+           while(true) {
+               uint mul = i * bigOne;
+               if(mul % smallOne == 0) {
+                   uint index = records.push([first, second, mul]) - 1;
+
+                   //调用事件
+                   emit GetLCM(first, second, mul);
+
+                   return index;
+               }
+               i++;
+           }
+       }
+   }
+
+   //根据索引获取游戏记录
+   function getRecord(uint index) external onlyOwner view returns(uint[3] memory) {
+       return records[index];
+   }
+}
+```
+
+#### 合约示例2
+wtop.sol
+``` js
+pragma solidity ^0.5.0;
+
+contract WTOP {
+    string public name     = "Wrapped TOP";
+    string public symbol   = "WTOP";
+    uint8  public decimals = 18;
+
+    event  Deposit(address indexed dst, uint wad);
+    event  Withdrawal(address indexed src, uint wad);
+
+    mapping (address => uint) public  balanceOf;
+
+    function deposit() public payable {
+        balanceOf[msg.sender] += msg.value;
+        emit Deposit(msg.sender, msg.value);
+    }
+    function withdraw(uint wad) public {
+        require(balanceOf[msg.sender] >= wad);
+        balanceOf[msg.sender] -= wad;
+        msg.sender.transfer(wad);
+        emit Withdrawal(msg.sender, wad);
+    }
+
+    function totalSupply() public view returns (uint) {
+        return address(this).balance;
+    }
+}
+```
+
+## 参考资料：
+https://www.jianshu.com/p/6c166db70388
+
+https://goethereumbook.org/smart-contracts/
+
+https://docs.soliditylang.org/en/v0.5.0/types.html#address
