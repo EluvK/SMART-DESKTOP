@@ -37,6 +37,9 @@ git pull && git add . && git commit -m "update articles"
 ```
 blog will sync your changes automatically by github action.
 
+### Posted Articles List:
+[articles list](./auto-publish/posted_articles.md)
+
 ### todo list:
-- [ ] could use github action to add url link in this README.md
+- [x] could use github action to add url link in this README.md
 - [ ] for now it's only `push` articles to website. lack of `pull` action.

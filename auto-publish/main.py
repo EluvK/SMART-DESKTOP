@@ -9,6 +9,7 @@ import json
 import markdown
 from mdx_gfm import GithubFlavoredMarkdownExtension
 import re
+import urllib.parse
 
 config_file_txt = ""
 
@@ -58,9 +59,10 @@ def get_posts():
     for post in posts:
         post_link_id_list.append({
             "id": post.id,
-            "link": post.link
+            "title": post.title,
+            "link": urllib.parse.unquote(post.link),
         })
-    print("### 文章数量 ： %d".format(len(post_link_id_list)))
+    print("### 文章数量 : {0}".format(len(post_link_id_list)))
     return post_link_id_list
 
 # 创建post对象
@@ -141,9 +143,8 @@ def read_md(file_path):
     # print(content)
     return (content, metadata)
 
+
 # 获取特定目录的markdown文件列表
-
-
 def get_md_list(dir_path):
     md_list = []
     dirs = os.listdir(dir_path)
@@ -168,15 +169,28 @@ def get_sha1(filename):
 
 
 def write_dic_info_to_file(dic_info, file):
-    dic_info_str = json.dumps(dic_info, indent=2)
-    file = open(file, 'w')
+    dic_info_str = json.dumps(dic_info, indent=2, ensure_ascii=False)
+    file = open(file, 'w', encoding='utf-8')
     file.write(dic_info_str)
     file.close()
     return True
 
+
+def write_dic_info_to_file_md(dic_info: dict, file):
+    # for j in dic_info:
+
+    # dic_info_str = json.dumps(dic_info, indent=2, ensure_ascii=False)
+
+    # print(dic_info_str)
+    file = open(file, 'w', encoding='utf-8')
+    for id, link in dic_info.items():
+        file.write("* " + id + ": " + link + '\n')
+    # file.write(dic_info_str)
+    file.close()
+    return True
+
+
 # 将文件读取为字典格式
-
-
 def read_dic_from_file(file):
     file_byte = open(file, 'r')
     file_info = file_byte.read()
@@ -184,15 +198,16 @@ def read_dic_from_file(file):
     file_byte.close()
     return dic
 
+
 def rebuild_posted_articles_list_file(infos: list, file_dir: str):
     res = {}
 
     for info in infos:
         key = info['id']
         link = info['link']
-        res[key] = link
+        res[key] = '['+info['title']+']('+info['link']+')'
 
-    write_dic_info_to_file(res, file_dir)
+    write_dic_info_to_file_md(res, file_dir)
 
 # ---------------------
 
@@ -207,14 +222,12 @@ def get_sha1_dict(file):
 
 
 def update_posted_articles():
-    # todo
     # 获取网站数据库中已有的文章列表
     post_link_id_list = get_posts()
 
     # print(post_link_id_list)
 
     # 写入本地文件
-    # { "id":"link", ... }
     rebuild_posted_articles_list_file(post_link_id_list, 'posted_articles.md')
 
 
@@ -232,7 +245,8 @@ def handle_folder(folder_path: str, sha1_list):
 
             # check_sha1_or_update()
             if id not in sha1_list or sha1_list[id] != get_sha1(md):
-                print("alread_posted: but not same [id: {0}, name: {1}]".format(id, file_name))
+                print("alread_posted: but not same [id: {0}, name: {1}]".format(
+                    id, file_name))
 
                 (content, metadata) = read_md(md)
                 title = metadata.get("title", "")
@@ -240,18 +254,20 @@ def handle_folder(folder_path: str, sha1_list):
                     title = file_name
                 _terms_names_post_tag = metadata.get("tags",  "")
                 _terms_names_category = metadata.get("categories", "未分类")
-                _post_status = metadata.get("status", default_status)  # draft or publish
+                _post_status = metadata.get(
+                    "status", default_status)  # draft or publish
                 content = markdown.markdown(
                     content, extensions=['tables', 'fenced_code', 'md_in_html', 'mdx_gfm'])
                 print("  -> dbg: ", id, title, file_name)
                 if edit_post(id, title, content, link=file_name, post_status=_post_status,
-                            terms_names_post_tag=_terms_names_post_tag, terms_names_category=_terms_names_category):
+                             terms_names_post_tag=_terms_names_post_tag, terms_names_category=_terms_names_category):
                     sha1_list[id] = get_sha1(md)
                 else:
                     print("   -> dbg: update false")
 
             else:
-                print("alread_posted: [id: {0}, name: {1}]".format(id, file_name))
+                print("alread_posted: [id: {0}, name: {1}]".format(
+                    id, file_name))
                 pass
 
         else:
@@ -265,16 +281,17 @@ def handle_folder(folder_path: str, sha1_list):
                 title = pure_file_name
             _terms_names_post_tag = metadata.get("tags",  "")
             _terms_names_category = metadata.get("categories", "未分类")
-            _post_status = metadata.get("status", default_status)  # draft or publish
+            _post_status = metadata.get(
+                "status", default_status)  # draft or publish
             content = markdown.markdown(
                 content, extensions=['tables', 'fenced_code', 'md_in_html', 'mdx_gfm'])
 
             # print(title, content, file_name.split(".")[0], post_status, terms_names_post_tag, terms_names_category)
             new_id = new_post(title, content, link=pure_file_name,  post_status=_post_status,
-                            terms_names_post_tag=_terms_names_post_tag, terms_names_category=_terms_names_category)
+                              terms_names_post_tag=_terms_names_post_tag, terms_names_category=_terms_names_category)
             sha1_list[new_id] = get_sha1(md)
             os.rename(os.path.join(os.getcwd(), folder_path) + '/' + file_name,
-                    os.path.join(os.getcwd(), folder_path) + '/' + str(new_id) + '.' + file_name)
+                      os.path.join(os.getcwd(), folder_path) + '/' + str(new_id) + '.' + file_name)
 
     return sha1_list
 
@@ -286,12 +303,10 @@ def main():
     posted_sha1_list = handle_folder("../articles", posted_sha1_list)
     posted_sha1_list = handle_folder("../draft", posted_sha1_list)
 
-    
     # use total update in the end
     write_dic_info_to_file(posted_sha1_list, "posted_sha1.md")
 
-    # todo
-    # update_posted_articles()
+    update_posted_articles()
     return
 
 
