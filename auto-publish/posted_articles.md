@@ -1,3 +1,4 @@
+* 839: [解决`rust update`更新失败](https://blog.eluvk.cn/rust/2022/06/解决rust-update更新失败/)
 * 836: [Sizedness in Rust](https://blog.eluvk.cn/读书笔记/2022/06/sizedness-in-rust/)
 * 830: [Use Rust lib in C/C++ project](https://blog.eluvk.cn/c/2022/06/use-rust-lib-in-c-c-project/)
 * 823: [rust 并发编程知识点总结](https://blog.eluvk.cn/rust/2022/05/rust-并发编程知识点总结/)
