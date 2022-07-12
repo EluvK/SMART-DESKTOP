@@ -1,0 +1,145 @@
+---
+title: "ETH keystore"
+tags: 
+- "ETH"
+- "Crypto"
+status: publish
+categories: 
+- "BlockChainLearning"
+---
+
+
+[toc]
+
+### Overview
+
+这是一个以太坊keystore文件的内容，我刚刚拿工具生成的：
+
+<!-- 
+公钥：
+public_key is : "04a196a30160bdda18a3567cac7a440103f4da3bb1b498191c1abdf8d177e315076f1474676e61a411b75c18b7aa87d4cbf2c303133f858b7222401875942dc5e2"
+"7d6ec07e050c40b20fdba7798710863372cb378d0c7c052abf724fc928aa8142"
+"48258957-776e-40b7-9ebd-068dd8f1156a"
+ -->
+
+``` JSON
+{
+    "address": "0x7579e895f588d668c181710d74cc4c0ed4c8871b",
+    "crypto": {
+        "cipher": "aes-128-ctr",
+        "ciphertext": "d7e10d319e6a03bd6d4461da69c818418fc25f138bf98b854baf6fdd6feeeea5",
+        "cipherparams": {
+            "iv": "deb0e25a32ad2c8f28fa3d83c90c6a37"
+        },
+        "kdf": "scrypt",
+        "kdfparams": {
+            "dklen": 32,
+            "n": 262144,
+            "p": 1,
+            "r": 8,
+            "salt": "4595597c7002cfc47db91cbd1bf6faa9d9d4b45a205563537eb4e8bc33b0720b"
+        },
+        "mac": "2968ba58ac928feb6f95564e0083f186c4a605edfdffbbe35a7d47e0f32ed03c"
+    },
+    "id": "48258957-776e-40b7-9ebd-068dd8f1156a",
+    "version": 3
+}
+```
+
+在了解每个字段含义之前，后面不会再解释的基础名词如下：
+
+* 私钥(private key): 长度为 `256 bit = 32 bytes` 的随机的密钥，一切加密的源头
+* 公钥(public key): 和私钥对应的公钥， 长度为 `512 bit = 64 bytes` ， 由 私钥 + 椭圆曲线加密 计算出来。可以由私钥推出公钥，无法从公钥推出私钥。具体的椭圆曲线算法参数 [`secp256k1`](https://en.bitcoin.it/wiki/Secp256k1) 和比特币一样。
+* 账户地址(address): 由公钥进行 `keccak256` hash运算后取后20个字节，以太坊给账号作标记的地址。
+* 密码(password): 用于加密 `keystore` 文件的密码，可以是任意长度的字符串。保护keystore文件不那么容易被破解。
+
+再来解释上面JSON文件里每个字段的含义：
+
+``` JSON
+{
+    "address": "地址",
+    "crypto": {
+        "cipher": "使用的(对称加密的)加密方法名，默认使用对称 [AES加密] 中的某一种",
+        "ciphertext": "私钥 + 密码 被该cipher加密方式加密后的结果",
+        "cipherparams": {
+            "iv": "该cipher加密方式需要的参数 (随机初始向量) `initialisation vector` "
+        },
+        "kdf": "使用的(基于密码的)加密方法名，`Key-derivation function` 一般用 [Scrypt] 也支持 [PBKDF2]",
+        "kdfparams": { // 该kdf加密方式需要的参数，除了盐值是随机生成的，其他参数推荐使用默认。
+            "dklen": 32, // 生成的key的bytes长度
+            "n": 262144, // 迭代次数，线性影响计算难度和内存占用
+            "p": 1, // 并行计算数
+            "r": 8, // 块大小，和 n 一起线性影响计算难度和内存占用
+            "salt": "盐值，随机生成的混淆参数"
+        },
+        "mac": "message authentication code 消息验证码，用于校验password是否正确"
+    },
+    "id": "随机生成的UUID，和keystore加密本身关系不大",
+    "version": 3 // 版本号
+}
+```
+
+整个keystore的加密，通过两类加密模式(cipher + kdf)来加密密码和私钥。从而达到的效果是：只有知道密码的用户才能利用keystore文件解出私钥，而想要暴力破解keystore也比较困难。
+
+其中涉及到的加密算法 WIKI 链接：也许未来会进一步学习下啊巴啊巴...
+
+* [AES加密(Advanced_Encryption_Standard)](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard)
+* [Scrypt](https://en.wikipedia.org/wiki/Scrypt)
+* [PBKDF2](https://en.wikipedia.org/wiki/PBKDF2)
+
+
+### Generate Keystore
+
+来看看生成keystore的流程，目标是一个keystore文件和我们心中的密码，比如`"some_password"`，它蕴含了一个32字节的私钥。私钥是生成keystore的数据源头，所以是整个算法过程中的参数。
+
+除此之外，上面JSON文件里的众多参数里，可以分为三类：
+
+1. 随机的输入参数，由随机器/用户定义生成的内容
+    * 用户定义，不在文件里的私钥
+    * 用户定义，不在文件里的密码
+    * 随机生成： `cipherparams-iv` cipher 初始向量
+    * 随机生成： `kdfparams-salt` kdf 盐值
+2. 算法需要的参数或固定参数，控制了加密的强度或者其他标记
+    * kdfparams - dklen/n/p/r 
+    * version
+    * id
+3. 算法的计算结果，由上面两类数据生成，写入文件为了校验/使用
+    * address： 对应了公钥
+    * ciphertext: 私钥加密结果
+    * mac： 验证码，用于在解密时验证密码是否正确
+
+除掉相对固定的参数，整个方法可以认为是 `F(prikey, password, iv, salt) -> mac` , 另外有 `G(prikey) -> pubkey, address` ，单独就可以生成。
+
+#### 算法步骤：
+
+1. 私钥推出公钥和地址： 
+    > `G(prikey) -> pubkey, address`
+2. `password + salt` 经过 `kdf算法(Scrypt)` 得到中间计算结果 `key (256bits 32bytes)`
+    > `Scrypt(password, salt, kdfparams) -> key`
+3. `prikey` 作为初始数据，经过对称加密 `cipher算法(AES128)` ，应用数据：`key` 的前16字节，`iv` 的前16字节，得到加密后的 `ciphertext`
+    > `AES128(prikey, key[0..16], iv[0..16]) -> ciphertext`
+4. `key[16..32] + ciphertext` 合起来，经过 `keccak256算法` 作hash256，得到结果 `mac`
+    > `keccak256(key[16..32] + ciphertext) -> mac`
+
+经过这四步，即把私钥和密码加密出来，计算出了校验用的 `ciphertext` 和 `mac`
+
+### Decrypt Keystore
+
+解码Keystore需要keystore文件和密码，密码正确的结果是解出来的密钥，密码错误会出错。
+
+#### 算法步骤
+
+1. 根据输入的 `password'` 计算 `key'` ，此步骤算法同上面的 #2，因为输入和中间结果 `key` 不一定正确，后面加了一个 `'` 做区分
+    > `Scrypt(password', salt, kdfparams) -> key'`
+2. `key'[16..32] + ciphertext` 合起来，经过 `keccak256算法` 作hash256，得到结果 `mac'`, 和上面的步骤4一样，计算出 `mac'` 校验密码是否正确。
+    > `keccak256(key'[16..32] + ciphertext) -> mac'`
+3. 验证 `mac'` 是否等于 `mac` 
+    > `if mac == mac' continue↓ else exit`
+4. `ciphertext` 作为初始数据，经过对称加密 `cipher算法(AES128)` ，应用数据：`key'` 的前16字节，`iv` 的前16字节，恢复出私钥
+    > `AES128(ciphertext, key'[0..16], iv[0..16]) -> prikey`
+
+
+### 总结
+完整的思维导图：
+
+![2022-07/keystore.png](https://github.com/EluvK/Image_server/raw/master/2022-07/keystore.png)
